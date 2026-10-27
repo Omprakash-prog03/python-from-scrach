@@ -1,0 +1,51 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+build/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project data (generated)
+data/database/
+data/images/
+data/exports/
+*.sqlite
+*.sqlite3
+
+# Large model files (download separately)
+models/*.pt
+models/*.pth
+models/*.onnx
+models/*.weights
+models/*.cfg
+
+# Tests cache
+.pytest_cache/
+
+# Dev-only runtime stubs (generated, only needed in bare Linux sandboxes)
+.stubs/
+*.c
+*.syms
