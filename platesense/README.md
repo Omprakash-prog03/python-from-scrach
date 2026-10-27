@@ -50,14 +50,55 @@ locally on your machine, no cloud required.
   Linux you need `libgl1-mesa-glx`, `libxkbcommon0`, `libdbus-1-3`,
   `libegl1` from your package manager — standard on desktop distros).
 
-## Installation
+## Install — pick your path
+
+### 🪟 Windows — one-line web install (recommended)
+
+Open **PowerShell** (press `Win+R`, type `powershell`, press Enter) and paste:
+
+```powershell
+irm https://raw.githubusercontent.com/Omprakash-prog03/python-from-scrach/main/platesense/scripts/install.ps1 | iex
+```
+
+That single line:
+
+1. Downloads the **latest pre-built Windows release** (a zipped
+   `PlateSense.exe` folder) from GitHub.
+2. Extracts it to `%LOCALAPPDATA%\PlateSense`.
+3. Creates a **Desktop shortcut** and a **Start Menu** folder (with an
+   uninstall entry).
+4. Optionally launches the app (add `-Launch` to the command above).
+
+If you prefer to do it by hand, grab the zip from the
+[Releases page](https://github.com/Omprakash-prog03/python-from-scrach/releases),
+right-click → **Properties** → tick **Unblock** → OK, extract anywhere,
+and double-click `PlateSense.exe`.
+
+> **Troubleshooting:** if the release page shows no assets yet, the CI
+> build is still running — wait 3–5 minutes after a tag is pushed and
+> refresh. If you want to run *from source* instead of waiting for a
+> pre-built binary, follow Option 3 below.
+
+### 🐧 Linux / 🍎 macOS — one-line web install
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Omprakash-prog03/python-from-scrach/main/platesense/scripts/install.sh | bash
+```
+
+This clones the repo, creates a venv under `~/.local/share/PlateSense`,
+installs deps, drops a `platesense` launcher in `~/.local/bin`, and
+(Linux) adds a `.desktop` entry so the app shows up in your launcher.
+
+### Option 3 — From source (all platforms)
 
 > **Note for Windows users:** when you install Python from
 > [python.org](https://www.python.org/downloads/windows/) tick the box
-> labelled **"Add Python.exe to PATH"**. If you see a `PySide6==6.8.0.2`
-> "no matching version" error, it almost always means you installed
-> Python 3.14 — install Python 3.12 instead, delete the `.venv` folder
-> and re-run the steps below.
+> labelled **"Add Python.exe to PATH"**. PlateSense requires Python
+> **3.11, 3.12 or 3.13** — Python **3.14 is not yet supported** by
+> PySide6 / PyTorch / EasyOCR. If you see a `PySide6==6.8.0.2`
+> "no matching version" error, you almost certainly have Python 3.14 —
+> install Python 3.12 side-by-side, delete the `.venv` folder and
+> re-run the steps below (the installer checks the version up front).
 
 ```bash
 git clone https://github.com/Omprakash-prog03/python-from-scrach.git
@@ -66,7 +107,7 @@ cd python-from-scrach/platesense
 python -m venv .venv
 source .venv/bin/activate       # Windows: .venv\Scripts\activate
 
-pip install --upgrade pip
+python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
@@ -84,7 +125,7 @@ The SQLite database and saved images live there automatically.
 python app.py
 ```
 
-Or use the helper script:
+Or use the helper script (creates a venv + installs deps automatically the first time):
 
 ```bash
 ./scripts/run.sh     # Linux/macOS
