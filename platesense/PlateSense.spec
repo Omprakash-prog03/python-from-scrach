@@ -12,9 +12,12 @@ Produces a distributable app in ``dist/``:
 * Linux   -> ``dist/PlateSense/PlateSense``
 """
 
-import os
+from __future__ import annotations
+
 import sys
 from pathlib import Path
+
+from PyInstaller.utils.hooks import collect_all, collect_submodules
 
 block_cipher = None
 
@@ -23,7 +26,7 @@ ASSETS = str(ROOT / "assets")
 MODELS = str(ROOT / "models")
 
 
-def _pick_icon() -> str | None:
+def _pick_icon():
     """Return a platform-appropriate icon if one exists, else None."""
     candidates = []
     if sys.platform == "darwin":
@@ -45,32 +48,32 @@ datas = [
     (MODELS, "models"),
 ]
 
-# Packages that PyInstaller sometimes misses in automatic detection.
-hiddenimports = [
-    "easyocr",
-    "easyocr.config",
-    "easyocr.model",
-    "easyocr.model.model",
-    "easyocr.model.modules",
-    "easyocr.detection",
-    "easyocr.recognition",
-    "easyocr.utils",
-    "easyocr.trainer",
-    "shapely",
-    "shapely.geometry",
-    "shapely.ops",
-    "skimage",
-    "cv2",
-    "PIL",
-    "PIL.Image",
-    "numpy",
-    "scipy",
-    "scipy.special",
-    "scipy.ndimage",
-    "pyclipper",
-    "torch",
-    "torchvision",
-]
+binaries = []
+hiddenimports = []
+
+
+def _collect(pkg_name):
+    """Safely collect a package's data, binaries and submodules (skip if missing)."""
+    global datas, binaries, hiddenimports
+    try:
+        d, b, h = collect_all(pkg_name)
+        datas += d
+        binaries += b
+        hiddenimports += h
+    except Exception as exc:
+        print(f"[spec] Note: could not collect {pkg_name}: {exc}")
+
+
+# Collect dynamic-import-heavy packages in full so PyInstaller sees them.
+for pkg in ("easyocr", "shapely", "skimage", "scipy", "cv2", "PIL", "numpy"):
+    _collect(pkg)
+
+# Optional: torch/torchvision only if installed (pulled in transitively by easyocr).
+for pkg in ("torch", "torchvision", "pyclipper"):
+    try:
+        hiddenimports += collect_submodules(pkg)
+    except Exception:
+        pass
 
 # Exclude heavy/dev modules we never use to keep the binary small.
 excludes = [
@@ -80,12 +83,14 @@ excludes = [
     "pytest_mock",
     "distutils",
     "numpy.f2py",
+    # Optional OCR engine — avoid bundling tesseract by default.
+    "pytesseract",
 ]
 
 a = Analysis(
     [str(ROOT / "app.py")],
     pathex=[str(ROOT)],
-    binaries=[],
+    binaries=binaries,
     datas=datas,
     hiddenimports=hiddenimports,
     hookspath=[],
@@ -111,8 +116,8 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
-    console=False,             # No terminal window on Windows/macOS
+    upx=False,                # UPX can corrupt PySide6 DLLs on Windows
+    console=False,            # No terminal window on Windows/macOS
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
@@ -127,7 +132,7 @@ coll = COLLECT(
     a.zipfiles,
     a.datas,
     strip=False,
-    upx=True,
+    upx=False,
     upx_exclude=[],
     name="PlateSense",
 )
