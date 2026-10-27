@@ -57,6 +57,15 @@ def _preload_runtime_stubs() -> None:
 def main() -> int:
     _preload_runtime_stubs()
     _ensure_on_path()
+
+    if not ((3, 11) <= sys.version_info[:2] <= (3, 13)):
+        sys.stderr.write(
+            "[FATAL] PlateSense requires Python 3.11, 3.12 or 3.13. "
+            f"You are running Python {sys.version.split()[0]}.\n"
+            "Please install a supported Python version from https://www.python.org/.\n"
+        )
+        return 2
+
     from config.logging_config import setup_logging
     setup_logging(logging.INFO)
     LOGGER = logging.getLogger("platesense")

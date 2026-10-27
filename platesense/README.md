@@ -43,20 +43,30 @@ locally on your machine, no cloud required.
 
 ## Requirements
 
-- Python 3.11+
+- **Python 3.11, 3.12 or 3.13** (Python 3.14 is **not** yet supported by
+  PySide6 / PyTorch / EasyOCR. If you have 3.14 installed, install Python
+  3.12 side-by-side — the virtual env will pick it up automatically.)
 - Linux, macOS or Windows (Windows/macOS ship system libGL normally; on
   Linux you need `libgl1-mesa-glx`, `libxkbcommon0`, `libdbus-1-3`,
   `libegl1` from your package manager — standard on desktop distros).
 
 ## Installation
 
+> **Note for Windows users:** when you install Python from
+> [python.org](https://www.python.org/downloads/windows/) tick the box
+> labelled **"Add Python.exe to PATH"**. If you see a `PySide6==6.8.0.2`
+> "no matching version" error, it almost always means you installed
+> Python 3.14 — install Python 3.12 instead, delete the `.venv` folder
+> and re-run the steps below.
+
 ```bash
-git clone <this-repo>
-cd platesense
+git clone https://github.com/Omprakash-prog03/python-from-scrach.git
+cd python-from-scrach/platesense
 
 python -m venv .venv
 source .venv/bin/activate       # Windows: .venv\Scripts\activate
 
+pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
