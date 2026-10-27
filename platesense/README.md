@@ -74,10 +74,85 @@ The SQLite database and saved images live there automatically.
 python app.py
 ```
 
+Or use the helper script:
+
+```bash
+./scripts/run.sh     # Linux/macOS
+scripts\run.bat      # Windows
+```
+
 ### Command-line shortcuts
 
 - `Ctrl/Cmd + O` — open an image
 - `Esc` — reset the Detect page
+
+## Packaging & deployment (desktop installable)
+
+PlateSense can be packaged into a standalone, double-clickable desktop
+application using PyInstaller — no Python install required on the target
+machine.
+
+### 1. Install build tools (once)
+
+```bash
+pip install -r requirements.txt
+pip install pyinstaller
+```
+
+### 2. Build
+
+```bash
+# Linux / macOS
+./scripts/build.sh            # produces dist/PlateSense/ (folder build)
+./scripts/build.sh --onefile  # produces a single executable
+
+# Windows (PowerShell / cmd)
+scripts\build.bat
+scripts\build.bat --onefile
+```
+
+The PyInstaller spec at `PlateSense.spec` bundles the `assets/` and `models/`
+directories, hides a terminal window on Windows/macOS, and (on macOS)
+produces a proper `.app` bundle with high-DPI and dark-mode enabled.
+
+### 3. Output
+
+| Platform | Output                                             |
+|----------|----------------------------------------------------|
+| Windows  | `dist\PlateSense\PlateSense.exe`                   |
+| macOS    | `dist/PlateSense.app`                              |
+| Linux    | `dist/PlateSense/PlateSense`                       |
+
+The folder build (`dist/PlateSense/`) is recommended for distribution because
+it starts faster; the `--onefile` variant unpacks itself to a temp directory
+on every launch.
+
+### 4. Distribute
+
+- **Windows** — zip the `dist/PlateSense/` folder and share; optionally wrap
+  in an installer (e.g. Inno Setup, NSIS).
+- **macOS** — code-sign, notarize and distribute `PlateSense.app` (or dmg).
+- **Linux** — create a `.deb` / `.AppImage` / flatpak around the `dist/PlateSense/`
+  directory, or just ship the directory and add a `.desktop` launcher.
+
+### 5. Shipping a YOLO model
+
+Place `license_plate_detector.pt` inside `models/` *before* running the build
+and it will be bundled into the application. Users can still override the
+path from **Settings → Detection → Model path**, and any model copied into
+the user-data `models/` directory takes priority over the bundled one.
+
+### Runtime data locations
+
+Packaged builds write their database, logs and saved images to the same
+per-user data directory used in development:
+
+- Windows: `%APPDATA%\PlateSense`
+- macOS:   `~/Library/Application Support/PlateSense`
+- Linux:   `~/.local/share/PlateSense`
+
+Uninstalling the app does not delete that folder (use the Settings retention
+controls to prune data).
 
 ## How the detection pipeline works
 
