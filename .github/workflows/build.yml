@@ -13,7 +13,7 @@ jobs:
   build-windows:
     name: Build Windows executable
     runs-on: windows-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
@@ -24,17 +24,43 @@ jobs:
           architecture: x64
           cache: 'pip'
 
+      - name: Show Python info
+        shell: pwsh
+        run: |
+          python --version
+          python -m pip --version
+          Get-Location
+          Get-ChildItem platesense
+
       - name: Install dependencies
+        shell: pwsh
         working-directory: platesense
         run: |
           python -m pip install --upgrade pip setuptools wheel
           pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
           pip install -r requirements-dev.txt
+          # Quick sanity import before PyInstaller
+          python -c "import PySide6, cv2, numpy, PIL, easyocr, shapely, skimage, scipy, torch, torchvision; print('imports OK')"
 
       - name: Build with PyInstaller
+        shell: cmd
         working-directory: platesense
         run: |
-          pyinstaller PlateSense.spec --clean --noconfirm --log-level WARN
+          pyinstaller PlateSense.spec --clean --noconfirm --log-level INFO > build.log 2>&1
+          set EC=%ERRORLEVEL%
+          echo.
+          echo ========== last 80 lines of build.log ==========
+          powershell -NoProfile -Command "Get-Content build.log -Tail 80"
+          echo ===============================================
+          exit /b %EC%
+
+      - name: Upload build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pyinstaller-build-log
+          path: platesense/build.log
+          if-no-files-found: ignore
 
       - name: Package as zip
         id: pkg
@@ -45,7 +71,9 @@ jobs:
           $zip = "PlateSense-$version-win-x64.zip"
           Compress-Archive -Path "dist\PlateSense\*" -DestinationPath $zip -Force
           "zip=$zip" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-          echo "Built $(Get-Item $zip | Select-Object -ExpandProperty Length) bytes"
+          $size = (Get-Item $zip).Length
+          "size=$size" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          echo "Built $size bytes"
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
@@ -73,7 +101,7 @@ jobs:
             ```powershell
             irm https://raw.githubusercontent.com/Omprakash-prog03/python-from-scrach/main/platesense/scripts/install.ps1 | iex
             ```
-            The script downloads this release, installs to `%LOCALAPPDATA%\PlateSense`, creates Desktop + Start Menu shortcuts (with Uninstall), and launches the app if you pass `-Launch`.
+            The script downloads this release, installs to `%LOCALAPPDATA%\PlateSense`, creates Desktop + Start Menu shortcuts (with Uninstall), and launches the app if you add `-Launch`.
 
             ### Option 2 — Manual zip
             1. Download `PlateSense-${{ github.ref_name }}-win-x64.zip` below
@@ -84,4 +112,4 @@ jobs:
             ### Option 3 — Run from source
             See [README.md](https://github.com/Omprakash-prog03/python-from-scrach#readme).
 
-            > **First run:** EasyOCR will download its English model (~60 MB) on first launch. Subsequent launches are fully offline.
+            > **First run:** EasyOCR downloads its English model (~60 MB) on first launch. Subsequent launches are fully offline.
