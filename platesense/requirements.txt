@@ -1,8 +1,11 @@
-PySide6==6.8.0.2
-opencv-python-headless==4.10.0.84
-numpy>=1.23,<2
+# Runtime dependencies for PlateSense.
+# Supported Python: 3.11, 3.12, 3.13.
+# Python 3.14 is NOT yet supported by PySide6 / PyTorch / EasyOCR.
+PySide6>=6.6,<6.12
+opencv-python-headless>=4.8,<5
+numpy>=1.23,<3
 Pillow>=10.0
 easyocr>=1.7
 Shapely>=2.0
-scikit-image>=0.22
-pytest>=7.0
+scikit-image>=0.21
+pyyaml>=6.0
