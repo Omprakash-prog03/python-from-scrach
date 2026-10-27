@@ -25,6 +25,18 @@ LOGGER = logging.getLogger(__name__)
 # Path helpers
 # ---------------------------------------------------------------------------
 
+def _resource_root() -> Path:
+    """Return the directory where bundled resources live.
+
+    In normal source runs this is the ``platesense/`` package directory.
+    In a PyInstaller one-file build it points to the extracted ``_MEIPASS``
+    bundle so that bundled model files, icons etc. are discoverable.
+    """
+    if getattr(sys, "frozen", False):  # pragma: no cover - only in frozen app
+        return Path(getattr(sys, "_MEIPASS", Path(sys.executable).resolve().parent))
+    return Path(__file__).resolve().parent.parent
+
+
 def _app_data_root() -> Path:
     """Return a per-user data directory (cross-platform)."""
     if sys.platform.startswith("win"):
@@ -85,6 +97,7 @@ class Config:
 
     def __init__(self) -> None:
         self.app_dir = Path(__file__).resolve().parent.parent
+        self.resource_dir = _resource_root()
         self.data_dir = _app_data_root()
         self.data_dir.mkdir(parents=True, exist_ok=True)
 
@@ -96,14 +109,29 @@ class Config:
         for d in (self.db_dir, self.img_dir, self.export_dir, self.log_dir):
             d.mkdir(parents=True, exist_ok=True)
 
-        # Models directory lives inside the project (can be changed in settings)
-        self.models_dir = self.app_dir / "models"
-        self.models_dir.mkdir(parents=True, exist_ok=True)
+        # Models directory lives next to the application resources.
+        # In a source checkout this is <repo>/platesense/models.
+        # In a frozen app it is the bundled resources/models folder; the user
+        # can still override this path in Settings.
+        self.models_dir = self.resource_dir / "models"
+        try:
+            self.models_dir.mkdir(parents=True, exist_ok=True)
+        except OSError:
+            # When bundled read-only, fall back to a user-writable dir
+            self.models_dir = self.data_dir / "models"
+            self.models_dir.mkdir(parents=True, exist_ok=True)
 
         self.user_config_path = self.data_dir / "settings.json"
 
+        # Default model path: first prefer a model next to user data (so users
+        # can drop in their own without modifying the bundle), then the bundled
+        # model.
+        user_model = self.data_dir / "models" / "license_plate_detector.pt"
+        bundled_model = self.resource_dir / "models" / "license_plate_detector.pt"
+        default_model = str(user_model if user_model.exists() else bundled_model)
+
         self.settings = Settings(
-            model_path=str(self.models_dir / "license_plate_detector.pt"),
+            model_path=default_model,
             database_path=str(self.db_dir / "platesense.sqlite"),
             image_storage_path=str(self.img_dir),
         )

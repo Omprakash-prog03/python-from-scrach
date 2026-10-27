@@ -49,3 +49,8 @@ models/*.cfg
 .stubs/
 *.c
 *.syms
+
+# PyInstaller build artefacts
+build/
+dist/
+*.spec.bak

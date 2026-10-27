@@ -19,10 +19,12 @@ def _ensure_on_path() -> None:
 def _preload_runtime_stubs() -> None:
     """On minimal systems missing libGL/EGL (e.g. stripped containers) inject
     the bundled .stubs directory into LD_LIBRARY_PATH and relaunch so that
-    the dynamic linker finds our shim libraries.
-
-    On normal desktop systems (macOS, Windows, regular Linux distros with
-    Mesa installed) this is a no-op."""
+    the dynamic linker finds our shim libraries. On normal desktop systems
+    (macOS, Windows, regular Linux distros with Mesa installed) this is a
+    no-op. The function is a no-op when the app is frozen by PyInstaller
+    because the bootloader sets up library paths itself."""
+    if getattr(sys, "frozen", False):
+        return
     here = Path(__file__).resolve().parent
     stub_dir = here / ".stubs"
 
