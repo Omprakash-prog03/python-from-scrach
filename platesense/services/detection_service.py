@@ -6,7 +6,7 @@ import os
 import time
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional
 
@@ -205,7 +205,7 @@ class DetectionService:
         """Save images and return metadata ready to insert into DB."""
         storage = Path(storage_dir or config.settings.image_storage_path)
         storage.mkdir(parents=True, exist_ok=True)
-        stamp = datetime.utcnow().strftime("%Y%m%dT%H%M%S")
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
         rid = uuid.uuid4().hex[:8]
 
         src_path = None

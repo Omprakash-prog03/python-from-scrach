@@ -2,7 +2,7 @@
 import csv
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from database.database import DetectionRecord
@@ -16,7 +16,7 @@ def _rec():
         detection_confidence=0.99, ocr_confidence=0.96, overall_confidence=0.98,
         image_path=None, plate_crop_path=None, annotated_path=None,
         processing_time=0.4, vehicle_type="Car", notes=None, valid=True,
-        created_at=datetime.utcnow().isoformat(timespec="seconds"),
+        created_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
     )
 
 

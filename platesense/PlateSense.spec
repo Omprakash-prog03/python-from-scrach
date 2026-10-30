@@ -7,17 +7,16 @@ Usage (from inside platesense/ after installing dev dependencies):
 
 Produces a distributable app in ``dist/``:
 
-* Windows -> ``dist/PlateSense/PlateSense.exe``  (or ``--onefile`` for a single exe)
+* Windows -> ``dist/PlateSense/PlateSense.exe``
 * macOS   -> ``dist/PlateSense.app``
 * Linux   -> ``dist/PlateSense/PlateSense``
 """
-
 from __future__ import annotations
 
 import sys
 from pathlib import Path
 
-from PyInstaller.utils.hooks import collect_all, collect_submodules
+from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
 block_cipher = None
 
@@ -42,7 +41,7 @@ def _pick_icon():
     return None
 
 
-# Include all data files that must ship inside the bundle.
+# Static data files we ship inside the bundle.
 datas = [
     (ASSETS, "assets"),
     (MODELS, "models"),
@@ -52,30 +51,33 @@ binaries = []
 hiddenimports = []
 
 
-def _collect(pkg_name):
-    """Safely collect a package's data, binaries and submodules (skip if missing)."""
-    global datas, binaries, hiddenimports
+def _collect_safe(pkg, include_submodules=True):
+    """Collect data files (and optionally submodules) for a package if installed.
+
+    We deliberately avoid collect_all() because it pulls binaries (e.g. CUDA
+    libs for torch) which are enormous and not needed for a CPU-only build.
+    """
+    global datas, hiddenimports
     try:
-        d, b, h = collect_all(pkg_name)
-        datas += d
-        binaries += b
-        hiddenimports += h
+        datas += collect_data_files(pkg)
     except Exception as exc:
-        print(f"[spec] Note: could not collect {pkg_name}: {exc}")
+        print(f"[spec] Note: collect_data_files({pkg}): {exc}")
+    if include_submodules:
+        try:
+            hiddenimports += collect_submodules(pkg)
+        except Exception as exc:
+            print(f"[spec] Note: collect_submodules({pkg}): {exc}")
 
 
-# Collect dynamic-import-heavy packages in full so PyInstaller sees them.
-for pkg in ("easyocr", "shapely", "skimage", "scipy", "cv2", "PIL", "numpy"):
-    _collect(pkg)
+# EasyOCR pulls several packages that use dynamic imports and plugin patterns.
+for _pkg in ("easyocr", "shapely", "skimage", "scipy", "cv2", "PIL"):
+    _collect_safe(_pkg)
 
-# Optional: torch/torchvision only if installed (pulled in transitively by easyocr).
-for pkg in ("torch", "torchvision", "pyclipper"):
-    try:
-        hiddenimports += collect_submodules(pkg)
-    except Exception:
-        pass
+# Let PyInstaller's built-in hooks handle torch / torchvision / PySide6 / numpy
+# (they are heavy and shipped with their own hook configs; adding collect_all
+# tends to balloon the bundle with test binaries and CUDA libs).
 
-# Exclude heavy/dev modules we never use to keep the binary small.
+# Exclude heavy/dev modules we never use (keeps binary smaller & avoids hook issues).
 excludes = [
     "tkinter",
     "unittest",
@@ -83,8 +85,14 @@ excludes = [
     "pytest_mock",
     "distutils",
     "numpy.f2py",
-    # Optional OCR engine — avoid bundling tesseract by default.
     "pytesseract",
+    # PySide6 modules we don't use
+    "PySide6.QtWebEngineCore", "PySide6.QtWebEngineWidgets", "PySide6.QtWebEngineQuick",
+    "PySide6.Qt3DCore", "PySide6.QtQuick3D", "PySide6.QtQml",
+    "PySide6.QtBluetooth", "PySide6.QtMultimedia", "PySide6.QtNetwork",
+    "PySide6.QtCharts", "PySide6.QtDataVisualization",
+    # IPython/notebook/training junk that easyocr sometimes pulls in
+    "IPython", "jupyter", "notebook", "matplotlib",
 ]
 
 a = Analysis(
@@ -116,8 +124,8 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=False,                # UPX can corrupt PySide6 DLLs on Windows
-    console=False,            # No terminal window on Windows/macOS
+    upx=False,                # UPX corrupts PySide6 DLLs on Windows; keep off.
+    console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,

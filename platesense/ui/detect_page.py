@@ -4,7 +4,7 @@ from __future__ import annotations
 import os
 import shutil
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 import cv2
@@ -448,7 +448,7 @@ class DetectPage(QWidget):
             vehicle_type=guess_vehicle_type(self._result.source_image.shape),
             notes=None,
             valid=plate.validation.valid,
-            created_at=datetime.utcnow().isoformat(timespec="seconds"),
+            created_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
         )
         from services.history_service import HistoryService
         try:
@@ -497,7 +497,7 @@ class DetectPage(QWidget):
             vehicle_type=guess_vehicle_type(self._result.source_image.shape),
             notes=None,
             valid=plate.validation.valid,
-            created_at=datetime.utcnow().isoformat(timespec="seconds"),
+            created_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
         )
         out_dir = config.export_dir
         default_name = f"{rec.normalized_plate.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
