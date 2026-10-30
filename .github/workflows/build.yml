@@ -24,37 +24,53 @@ jobs:
           architecture: x64
           cache: 'pip'
 
-      - name: Install CPU-only PyTorch first (avoids huge CUDA wheel)
+      - name: Show Python info
+        shell: pwsh
+        run: |
+          python --version
+          where.exe python
+          Get-Location
+          Get-ChildItem platesense -Name | Select-Object -First 20
+
+      - name: Install CPU-only PyTorch first
+        shell: pwsh
         run: |
           python -m pip install --upgrade pip setuptools wheel
           pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
 
-      - name: Install PlateSense runtime + build dependencies
+      - name: Install PlateSense dependencies
+        shell: pwsh
         working-directory: platesense
         run: pip install -r requirements-dev.txt
 
       - name: Verify imports
+        shell: pwsh
         working-directory: platesense
         run: python -c "import PySide6, cv2, numpy, PIL, easyocr, shapely, skimage, scipy, torch, torchvision, PyInstaller; print('imports OK')"
 
+      - name: Smoke-run PyInstaller help
+        shell: pwsh
+        working-directory: platesense
+        run: python -m PyInstaller --version
+
       - name: Build with PyInstaller
+        shell: pwsh
         working-directory: platesense
         run: python -m PyInstaller PlateSense.spec --clean --noconfirm --log-level INFO
 
-      - name: Verify the exe exists
-        working-directory: platesense
+      - name: Verify exe
         shell: pwsh
+        working-directory: platesense
         run: |
           $exe = "dist\PlateSense\PlateSense.exe"
           if (-not (Test-Path $exe)) {
-            Write-Host "ERROR: $exe not found. dist/ listing:"
+            Write-Host "ERROR: $exe not found. dist listing:"
             Get-ChildItem -Recurse dist | Select-Object FullName, Length
             exit 1
           }
-          $size = (Get-Item $exe).Length
-          Write-Host "Built exe: $($size/1MB) MB"
+          Write-Host "exe OK: $((Get-Item $exe).Length/1MB) MB"
           Get-ChildItem dist\PlateSense | Measure-Object -Property Length -Sum | ForEach-Object {
-            Write-Host "Total dist size: $([math]::Round($_.Sum/1MB,1)) MB in $($_.Count) files"
+            Write-Host "Total dist: $([math]::Round($_.Sum/1MB,1)) MB ($($_.Count) files)"
           }
 
       - name: Package as zip
@@ -75,7 +91,7 @@ jobs:
           path: platesense/PlateSense-*-win-x64.zip
           if-no-files-found: error
 
-      - name: Release (on tag push)
+      - name: Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
@@ -88,18 +104,13 @@ jobs:
 
             **Download:** `PlateSense-${{ github.ref_name }}-win-x64.zip`
 
-            ### Option 1 — One-line PowerShell install (recommended)
+            ### Install (recommended)
             ```powershell
             irm https://raw.githubusercontent.com/Omprakash-prog03/python-from-scrach/main/platesense/scripts/install.ps1 | iex
             ```
-            Installs to `%LOCALAPPDATA%\PlateSense`, creates Desktop + Start Menu shortcuts (with Uninstall entry). Add `-Launch` to start the app immediately.
+            Add `-Launch` to start the app after installing.
 
-            ### Option 2 — Manual zip
-            1. Download the zip below
-            2. Right-click → **Properties** → tick **Unblock** → OK
-            3. Extract anywhere and double-click `PlateSense.exe`
-
-            ### Option 3 — From source
-            See the repo README.
+            ### Manual install
+            Download the zip, right-click → Properties → Unblock → OK, extract and double-click `PlateSense.exe`.
 
             > First run downloads EasyOCR's English model (~60 MB); afterwards fully offline.

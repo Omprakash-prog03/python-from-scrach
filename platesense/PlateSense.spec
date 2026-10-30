@@ -4,8 +4,7 @@
 Usage (from inside platesense/ after installing dev dependencies):
     pyinstaller PlateSense.spec --clean --noconfirm
 """
-from __future__ import annotations
-
+import os
 import sys
 from pathlib import Path
 
@@ -45,7 +44,7 @@ a = Analysis(
     pathex=[str(ROOT)],
     binaries=[],
     datas=datas,
-    hiddenimports=[],
+    hiddenimports=["pyclipper"],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
