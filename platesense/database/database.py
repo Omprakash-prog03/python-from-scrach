@@ -12,7 +12,12 @@ import shutil
 import sqlite3
 from contextlib import contextmanager
 from dataclasses import dataclass, asdict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+
+
+def _utcnow() -> datetime:
+    """Timezone-aware UTC now (works on Python 3.11–3.13)."""
+    return datetime.now(timezone.utc)
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -95,7 +100,7 @@ class DatabaseManager:
 
     # ------------- writes -------------
     def insert_detection(self, record: DetectionRecord) -> int:
-        created_at = record.created_at or datetime.utcnow().isoformat(timespec="seconds")
+        created_at = record.created_at or _utcnow().isoformat(timespec="seconds")
         with self._connect() as conn:
             cur = conn.execute(
                 """INSERT INTO detections
@@ -127,7 +132,7 @@ class DatabaseManager:
                          (notes, detection_id))
 
     def apply_retention(self, days: int) -> int:
-        cutoff = (datetime.utcnow() - timedelta(days=days)).isoformat(timespec="seconds")
+        cutoff = (_utcnow() - timedelta(days=days)).isoformat(timespec="seconds")
         with self._connect() as conn:
             cur = conn.execute("DELETE FROM detections WHERE created_at < ?", (cutoff,))
             return cur.rowcount
@@ -182,7 +187,7 @@ class DatabaseManager:
 
     def stats(self) -> Dict[str, float]:
         with self._connect() as conn:
-            week_ago = (datetime.utcnow() - timedelta(days=7)).isoformat(timespec="seconds")
+            week_ago = (_utcnow() - timedelta(days=7)).isoformat(timespec="seconds")
             total = conn.execute("SELECT COUNT(*) c FROM detections").fetchone()["c"]
             week = conn.execute("SELECT COUNT(*) c FROM detections WHERE created_at >= ?",
                                 (week_ago,)).fetchone()["c"]

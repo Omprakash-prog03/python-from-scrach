@@ -59,9 +59,27 @@ STATE_CODES = {
     "WB": "West Bengal",
 }
 
-ALPHA_TO_DIGIT = {"O": "0", "Q": "0", "I": "1", "L": "1", "T": "1",
+# When we know a position MUST be a digit (district, number zone) we coerce letters.
+ALPHA_TO_DIGIT = {"O": "0", "Q": "0", "D": "0", "I": "1", "L": "1", "T": "1",
                   "Z": "2", "S": "5", "B": "8"}
-DIGIT_TO_ALPHA = {"0": "O", "1": "I", "8": "B", "5": "S", "2": "Z", "6": "G"}
+# When we know a position MUST be a letter (state prefix, series) we coerce digits.
+DIGIT_TO_ALPHA = {"0": "O", "1": "I", "8": "B", "5": "S", "2": "Z",
+                  "6": "G", "4": "A", "9": "G", "7": "T"}
+# For the two-letter state prefix, common OCR confusions in either position.
+# Key is (ocr_char_position_in_state_code_position_0_or_1, ocr_char) -> set of possible real chars.
+_STATE_CHAR_FIXES = {
+    "0": {"O", "D", "Q"}, "Q": {"O", "D"}, "D": {"O", "0"},
+    "8": {"B"},
+    "1": {"I", "L", "T"}, "I": {"1", "L"}, "L": {"I", "T"}, "T": {"I", "L"},
+    "2": {"Z"}, "Z": {"2"},
+    "5": {"S"}, "S": {"5"},
+    "6": {"G"}, "G": {"6", "C"}, "C": {"G"},
+    "4": {"A"}, "A": {"4"},
+    "9": {"G"},
+    "U": {"V", "W"}, "V": {"U", "W"}, "W": {"V", "U"},
+    "K": {"R", "X"}, "R": {"K", "P", "A"}, "P": {"R", "F"}, "F": {"P"},
+    "H": {"N", "M", "A"}, "N": {"H", "M"}, "M": {"N", "H"},
+}
 
 PLATE_REGEX = re.compile(
     r"^([A-Z]{2})-?(\d{1,2})-?([A-Z]{1,3})-?(\d{1,4})$"
@@ -175,16 +193,22 @@ def _contextual_fix(cleaned: str) -> Tuple[str, List[str]]:
     state, district, series, number = parsed
     state_issue = False
     if state not in STATE_CODES:
-        # Try a few common state-code OCR confusions
-        candidates = []
-        for code in STATE_CODES:
-            if code[0] == state[0] and (code[1] == state[1] or
-                                        _force_alpha(state[1]) == code[1]):
-                candidates.append(code)
+        # Try to recover state from common OCR confusions: generate candidates
+        # by replacing confused chars in each position.
+        c0, c1 = state[0], state[1]
+        cand_0 = {c0} | _STATE_CHAR_FIXES.get(c0, set())
+        cand_1 = {c1} | _STATE_CHAR_FIXES.get(c1, set())
+        candidates = [f"{a}{b}" for a in cand_0 for b in cand_1 if f"{a}{b}" in STATE_CODES]
+        # If we recover to exactly one valid state code, accept it; else flag.
         if len(candidates) == 1:
             state = candidates[0]
         else:
-            state_issue = True
+            # Prefer candidates whose second char matches exactly
+            exact_second = [c for c in candidates if c[1] == c1]
+            if len(exact_second) == 1:
+                state = exact_second[0]
+            else:
+                state_issue = True
 
     normalized = f"{state} {district.zfill(2)} {series} {number.zfill(4)}"
     if state_issue:

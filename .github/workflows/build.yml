@@ -13,7 +13,7 @@ jobs:
   build-windows:
     name: Build Windows executable
     runs-on: windows-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
 
@@ -24,18 +24,55 @@ jobs:
           architecture: x64
           cache: 'pip'
 
-      - name: Install dependencies
-        working-directory: platesense
+      - name: Install CPU-only PyTorch first (avoids huge CUDA wheel)
         run: |
           python -m pip install --upgrade pip setuptools wheel
           pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
-          pip install -r requirements-dev.txt
-          python -c "import PySide6, cv2, numpy, PIL, easyocr, shapely, skimage, scipy, torch, torchvision; print('imports OK')"
+
+      - name: Install PlateSense runtime + build dependencies
+        working-directory: platesense
+        run: pip install -r requirements-dev.txt
+
+      - name: Verify imports
+        working-directory: platesense
+        run: python -c "import PySide6, cv2, numpy, PIL, easyocr, shapely, skimage, scipy, torch, torchvision, PyInstaller; print('imports OK')"
 
       - name: Build with PyInstaller
         working-directory: platesense
+        shell: pwsh
         run: |
-          python -m PyInstaller PlateSense.spec --clean --noconfirm
+          # Capture output to a file and tee so we still see it in the Action log
+          python -m PyInstaller PlateSense.spec --clean --noconfirm --log-level INFO 2>&1 | Tee-Object -FilePath build.log
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "::group::Build log tail"
+            Get-Content build.log -Tail 200
+            Write-Host "::endgroup::"
+            exit $LASTEXITCODE
+          }
+
+      - name: Verify the exe exists
+        working-directory: platesense
+        shell: pwsh
+        run: |
+          $exe = "dist\PlateSense\PlateSense.exe"
+          if (-not (Test-Path $exe)) {
+            Write-Host "ERROR: $exe not found. dist/ listing:"
+            Get-ChildItem -Recurse dist | Select-Object FullName, Length
+            exit 1
+          }
+          $size = (Get-Item $exe).Length
+          Write-Host "Built exe: $($size/1MB) MB"
+          Get-ChildItem dist\PlateSense | Measure-Object -Property Length -Sum | ForEach-Object {
+            Write-Host "Total dist size: $([math]::Round($_.Sum/1MB,1)) MB in $($_.Count) files"
+          }
+
+      - name: Upload build log (always)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pyinstaller-log
+          path: platesense/build.log
+          if-no-files-found: ignore
 
       - name: Package as zip
         id: pkg
@@ -46,10 +83,7 @@ jobs:
           $zip = "PlateSense-$version-win-x64.zip"
           Compress-Archive -Path "dist\PlateSense\*" -DestinationPath $zip -Force
           "zip=$zip" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-          $size = (Get-Item $zip).Length
-          "size=$size" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-          echo "Built $size bytes"
-          Get-ChildItem dist\PlateSense | Select-Object -First 20 Name, Length
+          Write-Host "Zip: $((Get-Item $zip).Length) bytes"
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
@@ -69,23 +103,20 @@ jobs:
           body: |
             ## PlateSense ${{ github.ref_name }} — Windows (x64)
 
-            **Download:** `PlateSense-${{ github.ref_name }}-win-x64.zip` (asset below)
+            **Download:** `PlateSense-${{ github.ref_name }}-win-x64.zip`
 
             ### Option 1 — One-line PowerShell install (recommended)
-
-            Open PowerShell and paste:
             ```powershell
             irm https://raw.githubusercontent.com/Omprakash-prog03/python-from-scrach/main/platesense/scripts/install.ps1 | iex
             ```
-            The script downloads this release, installs to `%LOCALAPPDATA%\PlateSense`, creates Desktop + Start Menu shortcuts (with Uninstall), and launches the app if you add `-Launch`.
+            Installs to `%LOCALAPPDATA%\PlateSense`, creates Desktop + Start Menu shortcuts (with Uninstall entry). Add `-Launch` to start the app immediately.
 
             ### Option 2 — Manual zip
-            1. Download `PlateSense-${{ github.ref_name }}-win-x64.zip` below
+            1. Download the zip below
             2. Right-click → **Properties** → tick **Unblock** → OK
-            3. Extract the zip to any folder (e.g. `C:\Program Files\PlateSense`)
-            4. Double-click `PlateSense.exe`
+            3. Extract anywhere and double-click `PlateSense.exe`
 
-            ### Option 3 — Run from source
-            See [README.md](https://github.com/Omprakash-prog03/python-from-scrach#readme).
+            ### Option 3 — From source
+            See the repo README.
 
-            > **First run:** EasyOCR downloads its English model (~60 MB) on first launch. Subsequent launches are fully offline.
+            > First run downloads EasyOCR's English model (~60 MB); afterwards fully offline.
