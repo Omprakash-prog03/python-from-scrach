@@ -39,16 +39,15 @@ jobs:
 
       - name: Build with PyInstaller
         working-directory: platesense
-        shell: pwsh
+        shell: cmd
         run: |
-          # Capture output to a file and tee so we still see it in the Action log
-          python -m PyInstaller PlateSense.spec --clean --noconfirm --log-level INFO 2>&1 | Tee-Object -FilePath build.log
-          if ($LASTEXITCODE -ne 0) {
-            Write-Host "::group::Build log tail"
-            Get-Content build.log -Tail 200
-            Write-Host "::endgroup::"
-            exit $LASTEXITCODE
-          }
+          python -m PyInstaller PlateSense.spec --clean --noconfirm --log-level INFO > build.log 2>&1
+          set EC=%ERRORLEVEL%
+          echo.
+          echo ============ build.log tail ============
+          powershell -NoProfile -Command "Get-Content build.log -Tail 200"
+          echo ========================================
+          exit /b %EC%
 
       - name: Verify the exe exists
         working-directory: platesense
