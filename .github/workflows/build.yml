@@ -39,15 +39,7 @@ jobs:
 
       - name: Build with PyInstaller
         working-directory: platesense
-        shell: cmd
-        run: |
-          python -m PyInstaller PlateSense.spec --clean --noconfirm --log-level INFO > build.log 2>&1
-          set EC=%ERRORLEVEL%
-          echo.
-          echo ============ build.log tail ============
-          powershell -NoProfile -Command "Get-Content build.log -Tail 200"
-          echo ========================================
-          exit /b %EC%
+        run: python -m PyInstaller PlateSense.spec --clean --noconfirm --log-level INFO
 
       - name: Verify the exe exists
         working-directory: platesense
@@ -64,14 +56,6 @@ jobs:
           Get-ChildItem dist\PlateSense | Measure-Object -Property Length -Sum | ForEach-Object {
             Write-Host "Total dist size: $([math]::Round($_.Sum/1MB,1)) MB in $($_.Count) files"
           }
-
-      - name: Upload build log (always)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: pyinstaller-log
-          path: platesense/build.log
-          if-no-files-found: ignore
 
       - name: Package as zip
         id: pkg
